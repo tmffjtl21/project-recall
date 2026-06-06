@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>게시판 · project-recall</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; background: #f4f5f7;
+               margin: 0; color: #222; }
+        header { background: #fff; padding: 16px 28px; display: flex;
+                 align-items: center; justify-content: space-between;
+                 box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+        header h1 { font-size: 18px; margin: 0; }
+        header .user { font-size: 13px; color: #666; }
+        header .user b { color: #3b6cff; }
+        .logout { margin-left: 14px; font-size: 13px; padding: 6px 12px;
+                  border: 0; border-radius: 6px; background: #eee; cursor: pointer; }
+        .logout:hover { background: #ddd; }
+        main { max-width: 760px; margin: 28px auto; padding: 0 16px; }
+        .panel { background: #fff; border-radius: 12px; padding: 22px 24px;
+                 box-shadow: 0 2px 12px rgba(0,0,0,.05); margin-bottom: 24px; }
+        .panel h2 { font-size: 15px; margin: 0 0 16px; }
+        input, textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd;
+                          border-radius: 8px; font-size: 14px; font-family: inherit; }
+        textarea { margin-top: 10px; resize: vertical; min-height: 80px; }
+        .panel button { margin-top: 12px; padding: 10px 20px; border: 0;
+                        border-radius: 8px; background: #3b6cff; color: #fff;
+                        font-size: 14px; cursor: pointer; float: right; }
+        .panel button:hover { background: #2f59d6; }
+        ul { list-style: none; padding: 0; margin: 0; }
+        li { background: #fff; border-radius: 10px; padding: 16px 18px;
+             margin-bottom: 12px; box-shadow: 0 1px 6px rgba(0,0,0,.05); }
+        li .title { font-weight: 600; font-size: 15px; }
+        li .content { margin: 8px 0; font-size: 14px; color: #444; white-space: pre-wrap; }
+        li .meta { font-size: 12px; color: #999; }
+        .empty { text-align: center; color: #aaa; padding: 30px; }
+        .clear { clear: both; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>메모 게시판</h1>
+        <div>
+            <span class="user"><b th:text="${username}">test</b> 님</span>
+            <form th:action="@{/logout}" method="post" style="display:inline;">
+                <button type="submit" class="logout">로그아웃</button>
+            </form>
+        </div>
+    </header>
+
+    <main>
+        <div class="panel">
+            <h2>새 메모 등록</h2>
+            <form th:action="@{/memos}" method="post">
+                <input type="text" name="title" placeholder="제목" maxlength="100" required>
+                <textarea name="content" placeholder="내용을 입력하세요" maxlength="1000" required></textarea>
+                <button type="submit">등록</button>
+                <div class="clear"></div>
+            </form>
+        </div>
+
+        <ul>
+            <li th:if="${#lists.isEmpty(memos)}" class="empty">
+                아직 등록된 메모가 없습니다.
+            </li>
+            <li th:each="memo : ${memos}">
+                <div class="title" th:text="${memo.title}">제목</div>
+                <div class="content" th:text="${memo.content}">내용</div>
+                <div class="meta">
+                    <span th:text="${memo.writer}">작성자</span> ·
+                    <span th:text="${#temporals.format(memo.createdAt, 'yyyy-MM-dd HH:mm')}">날짜</span>
+                </div>
+            </li>
+        </ul>
+    </main>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 · project-recall</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; background: #f4f5f7;
+               display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .card { background: #fff; padding: 40px 36px; border-radius: 12px;
+                box-shadow: 0 4px 20px rgba(0,0,0,.08); width: 320px; }
+        h1 { font-size: 20px; margin: 0 0 24px; text-align: center; color: #222; }
+        label { display: block; font-size: 13px; color: #555; margin: 14px 0 6px; }
+        input { width: 100%; padding: 10px 12px; border: 1px solid #ddd;
+                border-radius: 8px; font-size: 14px; }
+        button { width: 100%; margin-top: 22px; padding: 11px; border: 0;
+                 border-radius: 8px; background: #3b6cff; color: #fff;
+                 font-size: 15px; cursor: pointer; }
+        button:hover { background: #2f59d6; }
+        .msg { margin-top: 16px; font-size: 13px; text-align: center; }
+        .error { color: #d33; }
+        .info { color: #2a8; }
+        .hint { margin-top: 18px; font-size: 12px; color: #999; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>project-recall</h1>
+        <form th:action="@{/login}" method="post">
+            <label for="username">아이디</label>
+            <input type="text" id="username" name="username" autofocus required>
+
+            <label for="password">비밀번호</label>
+            <input type="password" id="password" name="password" required>
+
+            <button type="submit">로그인</button>
+        </form>
+
+        <p class="msg error" th:if="${param.error}">아이디 또는 비밀번호가 올바르지 않습니다.</p>
+        <p class="msg info" th:if="${param.logout}">로그아웃되었습니다.</p>
+
+        <p class="hint">test / 123</p>
+    </div>
+</body>
+</html>
