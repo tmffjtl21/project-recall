@@ -11,10 +11,16 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
+/**
+ * 폼 로그인(하드코딩 test/123)과 GitHub/카카오/네이버 OAuth2 소셜 로그인 보안 설정.
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
+    /**
+     * 인증 정책과 로그인/로그아웃, H2 콘솔 예외를 구성한다.
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http

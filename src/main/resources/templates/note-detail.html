@@ -12,13 +12,16 @@
     </div>
     <div th:if="${selectedMemo != null}" class="detail-wrap">
         <div class="detail-toolbar">
-            <button type="button" class="btn-ghost"
-                    th:attr="hx-get=@{'/notes/memo/' + ${selectedMemo.id} + '/edit'}"
-                    hx-target="#note-detail" hx-swap="outerHTML">수정</button>
-            <button type="button" class="btn-ghost danger"
-                    th:attr="hx-delete=@{'/memos/' + ${selectedMemo.id}}"
-                    hx-target="#workspace" hx-swap="outerHTML"
-                    hx-confirm="이 노트를 삭제할까요?">삭제</button>
+            <button type="button" class="btn-ghost mobile-back" onclick="showList()">← 목록</button>
+            <div class="toolbar-actions">
+                <button type="button" class="btn-ghost"
+                        th:attr="hx-get=@{'/notes/memo/' + ${selectedMemo.id} + '/edit'}"
+                        hx-target="#note-detail" hx-swap="outerHTML">수정</button>
+                <button type="button" class="btn-ghost danger"
+                        th:attr="hx-delete=@{'/memos/' + ${selectedMemo.id}}"
+                        hx-target="#workspace" hx-swap="outerHTML"
+                        hx-confirm="이 노트를 삭제할까요?">삭제</button>
+            </div>
         </div>
         <div class="detail-scroll">
             <article class="detail">
@@ -41,6 +44,7 @@
           hx-target="#workspace" hx-swap="outerHTML">
         <input type="hidden" name="categoryId" th:if="${formCategoryId != null}" th:value="${formCategoryId}">
         <div class="editor-head">
+            <button type="button" class="btn-ghost mobile-back" onclick="showList()">← 목록</button>
             <input type="text" name="title" class="form-title" placeholder="제목" required
                    th:value="${formMemo != null ? formMemo.title : ''}">
         </div>

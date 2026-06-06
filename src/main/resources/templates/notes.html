@@ -43,6 +43,12 @@
 </head>
 <body>
     <header>
+        <button type="button" class="icon-btn hamburger" onclick="toggleDrawer()" aria-label="카테고리 메뉴">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+        </button>
         <div class="brand">
             <img class="logo" th:src="@{/img/logo.svg}" alt="Recall">
             <span class="brand-name">Recall</span>
@@ -92,11 +98,14 @@
         <!-- 가운데: 노트 목록 -->
         <section class="col list-col">
             <div class="col-head">
-                <span th:text="${searchQuery != null ? '검색: ' + searchQuery
+                <span class="col-head-title" th:text="${searchQuery != null ? '검색: ' + searchQuery
                                  : (selectedCategory != null ? selectedCategory.name : '노트')}">노트</span>
+                <!-- 카테고리 선택 시 실제 버튼, 검색 등으로 미선택 시 같은 자리를 비워 흔들림 방지 -->
                 <span th:if="${selectedCategory != null}" class="new-note"
                       th:attr="hx-get=@{'/notes/category/' + ${selectedCategory.id} + '/new'}"
                       hx-target="#note-detail" hx-swap="outerHTML">＋ 새 노트</span>
+                <span th:unless="${selectedCategory != null}" class="new-note" aria-hidden="true"
+                      style="visibility:hidden">＋ 새 노트</span>
             </div>
             <div class="note-list">
                 <div th:if="${#lists.isEmpty(memos)}" class="list-empty"
@@ -116,48 +125,48 @@
         <th:block th:replace="~{note-detail :: noteDetail}"></th:block>
     </div>
 
+    <!-- 모바일 카테고리 드로어 배경 -->
+    <div class="drawer-backdrop" onclick="closeDrawer()"></div>
+
     <script>
-        // 노트 본문을 하나의 코드 블록으로 안전하게 렌더 + 언어 자동감지 하이라이트.
-        // textContent로만 다루므로 HTML이 절대 실행되지 않는다(주입 안전).
+        /**
+         * 노트 본문을 코드 블록으로 안전하게 렌더하고 언어를 자동 감지해 하이라이트한다.
+         * textContent 로만 다루므로 HTML 이 실행되지 않는다(주입 안전).
+         */
         function renderNotes() {
             document.querySelectorAll('.js-note-content').forEach(function (el) {
-                if (el.dataset.rendered) return;
-                var raw = el.textContent;
+                if (el.dataset.rendered) {
+                    return;
+                }
                 var pre = document.createElement('pre');
                 var code = document.createElement('code');
-                code.textContent = raw;
+                code.textContent = el.textContent;
                 pre.appendChild(code);
                 el.textContent = '';
                 el.appendChild(pre);
-                if (window.hljs) { window.hljs.highlightElement(code); }
+                if (window.hljs) {
+                    window.hljs.highlightElement(code);
+                }
                 el.dataset.rendered = '1';
             });
         }
 
-        // 테마 헬퍼
-        function currentTheme() {
-            return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-        }
-        function cmTheme() { return currentTheme() === 'dark' ? 'material-darker' : 'default'; }
-        function applyTheme(t) {
-            document.documentElement.setAttribute('data-theme', t);
-            var dark = document.getElementById('hljs-dark');
-            var light = document.getElementById('hljs-light');
-            if (dark && light) { dark.disabled = (t !== 'dark'); light.disabled = (t === 'dark'); }
-            document.querySelectorAll('textarea.js-code-editor').forEach(function (ta) {
-                if (ta.cm) { ta.cm.setOption('theme', cmTheme()); }
-            });
-            var btn = document.getElementById('theme-toggle');
-            if (btn) { btn.textContent = (t === 'dark') ? '라이트' : '다크'; }
-            try { localStorage.setItem('theme', t); } catch (e) {}
-        }
-        function toggleTheme() { applyTheme(currentTheme() === 'dark' ? 'light' : 'dark'); }
-
-        // 2) 작성/수정 textarea를 CodeMirror 에디터로 변환 (전체 높이, 코드 색상)
+        /**
+         * 작성/수정 textarea 를 CodeMirror 에디터로 변환한다(전체 높이, 코드 색상).
+         * 모바일(좁은 화면)에서는 변환하지 않고 네이티브 textarea 를 쓴다.
+         * CodeMirror 5 는 모바일 한글 IME 입력이 불안정하기 때문이다.
+         */
         function initEditors() {
-            if (!window.CodeMirror) return;
+            if (!window.CodeMirror) {
+                return;
+            }
+            if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+                return;
+            }
             document.querySelectorAll('textarea.js-code-editor').forEach(function (ta) {
-                if (ta.dataset.cm) return;
+                if (ta.dataset.cm) {
+                    return;
+                }
                 var cm = window.CodeMirror.fromTextArea(ta, {
                     mode: 'markdown',
                     theme: cmTheme(),
@@ -169,11 +178,80 @@
                 cm.setSize('100%', '100%');
                 ta.cm = cm;
                 ta.dataset.cm = '1';
-                setTimeout(function () { cm.refresh(); cm.focus(); }, 0);
+                setTimeout(function () {
+                    cm.refresh();
+                    cm.focus();
+                }, 0);
             });
         }
 
-        // 3) 모든 htmx 요청: CSRF 헤더 + CodeMirror 내용을 폼 파라미터로 동기화
+        /* ----- 테마(라이트/다크) ----- */
+
+        function currentTheme() {
+            return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+        }
+
+        function cmTheme() {
+            return currentTheme() === 'dark' ? 'material-darker' : 'default';
+        }
+
+        /**
+         * 테마를 적용하고(앱/코드/에디터) 선택을 저장한다.
+         */
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            var dark = document.getElementById('hljs-dark');
+            var light = document.getElementById('hljs-light');
+            if (dark && light) {
+                dark.disabled = (theme !== 'dark');
+                light.disabled = (theme === 'dark');
+            }
+            document.querySelectorAll('textarea.js-code-editor').forEach(function (ta) {
+                if (ta.cm) {
+                    ta.cm.setOption('theme', cmTheme());
+                }
+            });
+            var btn = document.getElementById('theme-toggle');
+            if (btn) {
+                btn.textContent = (theme === 'dark') ? '라이트' : '다크';
+            }
+            try {
+                localStorage.setItem('theme', theme);
+            } catch (e) {
+                /* localStorage 사용 불가 시 무시 */
+            }
+        }
+
+        function toggleTheme() {
+            applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+        }
+
+        /* ----- 모바일 UI(카테고리 드로어 / 단일 패널 전환) ----- */
+
+        function toggleDrawer() {
+            document.body.classList.toggle('drawer-open');
+        }
+
+        function closeDrawer() {
+            document.body.classList.remove('drawer-open');
+        }
+
+        function showList() {
+            document.body.classList.remove('view-detail');
+        }
+
+        /**
+         * 우측 패널에 내용(상세/폼)이 있으면 모바일에서 상세 화면을, 없으면 목록 화면을 보여준다.
+         */
+        function syncMobileView() {
+            var detail = document.getElementById('note-detail');
+            var hasContent = !!(detail && (detail.querySelector('.note-form') || detail.querySelector('.detail')));
+            document.body.classList.toggle('view-detail', hasContent);
+        }
+
+        /**
+         * 모든 htmx 요청에 CSRF 토큰 헤더를 싣고, CodeMirror 내용을 폼 파라미터로 동기화한다.
+         */
         document.body.addEventListener('htmx:configRequest', function (evt) {
             var token = document.querySelector('meta[name="_csrf"]');
             var header = document.querySelector('meta[name="_csrf_header"]');
@@ -190,15 +268,20 @@
             }
         });
 
-        // 4) 페이지 로드 / htmx 스왑 후 렌더링·에디터 초기화
+        /* ----- 라이프사이클 ----- */
+
         document.addEventListener('DOMContentLoaded', function () {
             applyTheme(currentTheme());
             renderNotes();
             initEditors();
+            syncMobileView();
         });
+
         document.body.addEventListener('htmx:afterSwap', function () {
             renderNotes();
             initEditors();
+            closeDrawer();
+            syncMobileView();
         });
     </script>
 </body>

@@ -19,6 +19,10 @@ import recall.repository.CategoryRepository;
 import recall.repository.MemoRepository;
 import recall.support.LoginUsername;
 
+/**
+ * 노트 3분할 화면과 카테고리/노트 CRUD, 검색을 처리하는 컨트롤러.
+ * 응답은 화면 일부를 교체하는 HTMX fragment 또는 전체 페이지다.
+ */
 @Controller
 public class NoteController {
 
@@ -35,7 +39,9 @@ public class NoteController {
         this.memoMapper = memoMapper;
     }
 
-    // 전체 3분할 화면
+    /**
+     * 전체 3분할 화면. 카테고리가 하나도 없으면 기본 카테고리를 만든다.
+     */
     @GetMapping({"/", "/notes"})
     public String notes(Model model, Authentication authentication) {
         String owner = owner(authentication);
@@ -46,7 +52,9 @@ public class NoteController {
         return "notes";
     }
 
-    // 카테고리 선택
+    /**
+     * 카테고리를 선택해 해당 카테고리의 노트 목록을 보여준다.
+     */
     @GetMapping("/notes/category/{id}")
     public String selectCategory(@PathVariable Long id, Model model, Authentication authentication) {
         String owner = owner(authentication);
@@ -54,7 +62,9 @@ public class NoteController {
         return "notes :: workspace";
     }
 
-    // 노트 선택 -> 목록 하이라이트 + 상세 (workspace 전체 갱신)
+    /**
+     * 노트를 선택한다. 목록 하이라이트와 상세를 함께 갱신하기 위해 workspace 전체를 반환한다.
+     */
     @GetMapping("/notes/memo/{id}")
     public String selectMemo(@PathVariable Long id, Model model, Authentication authentication) {
         String owner = owner(authentication);
@@ -63,7 +73,9 @@ public class NoteController {
         return "notes :: workspace";
     }
 
-    // 제목/내용 검색
+    /**
+     * 제목 또는 내용으로 노트를 검색한다. 빈 검색어면 기본 목록으로 돌아간다.
+     */
     @GetMapping("/notes/search")
     public String search(@RequestParam(name = "q", required = false, defaultValue = "") String q,
                          Model model, Authentication authentication) {
@@ -83,7 +95,9 @@ public class NoteController {
         return "notes :: workspace";
     }
 
-    // 새 노트 작성 폼
+    /**
+     * 새 노트 작성 폼을 우측 패널에 띄운다.
+     */
     @GetMapping("/notes/category/{id}/new")
     public String newNoteForm(@PathVariable Long id, Model model, Authentication authentication) {
         String owner = owner(authentication);
@@ -94,7 +108,9 @@ public class NoteController {
         return "note-detail :: noteForm";
     }
 
-    // 노트 수정 폼
+    /**
+     * 노트 수정 폼을 우측 패널에 띄운다.
+     */
     @GetMapping("/notes/memo/{id}/edit")
     public String editNoteForm(@PathVariable Long id, Model model, Authentication authentication) {
         String owner = owner(authentication);
@@ -104,6 +120,9 @@ public class NoteController {
         return "note-detail :: noteForm";
     }
 
+    /**
+     * 카테고리를 추가한다.
+     */
     @PostMapping("/categories")
     public String addCategory(@RequestParam String name, Model model, Authentication authentication) {
         String owner = owner(authentication);
@@ -114,6 +133,9 @@ public class NoteController {
         return "notes :: workspace";
     }
 
+    /**
+     * 카테고리를 삭제한다(소속 노트도 함께 삭제).
+     */
     @DeleteMapping("/categories/{id}")
     public String deleteCategory(@PathVariable Long id, Model model, Authentication authentication) {
         String owner = owner(authentication);
@@ -124,6 +146,9 @@ public class NoteController {
         return "notes :: workspace";
     }
 
+    /**
+     * 노트를 등록한다.
+     */
     @PostMapping("/memos")
     public String addMemo(@RequestParam Long categoryId,
                           @RequestParam String title,
@@ -137,6 +162,9 @@ public class NoteController {
         return "notes :: workspace";
     }
 
+    /**
+     * 노트를 수정한다.
+     */
     @PostMapping("/memos/{id}")
     public String updateMemo(@PathVariable Long id,
                              @RequestParam String title,
@@ -150,6 +178,9 @@ public class NoteController {
         return "notes :: workspace";
     }
 
+    /**
+     * 노트를 삭제한다.
+     */
     @DeleteMapping("/memos/{id}")
     public String deleteMemo(@PathVariable Long id, Model model, Authentication authentication) {
         String owner = owner(authentication);
@@ -160,8 +191,9 @@ public class NoteController {
         return "notes :: workspace";
     }
 
-    // ---- helpers ----
-
+    /**
+     * 좌(카테고리)·중(노트 목록)·우(상세) 패널에 필요한 데이터를 DTO 로 변환해 모델에 담는다.
+     */
     private void populate(Model model, String owner, Category selected, Memo selectedMemo) {
         model.addAttribute("categories",
                 categoryMapper.toDtoList(categoryRepository.findByOwnerOrderBySortOrderAscIdAsc(owner)));
@@ -173,11 +205,17 @@ public class NoteController {
         model.addAttribute("searchQuery", null);
     }
 
+    /**
+     * 해당 사용자의 첫 번째 카테고리. 없으면 null.
+     */
     private Category firstCategory(String owner) {
         List<Category> categories = categoryRepository.findByOwnerOrderBySortOrderAscIdAsc(owner);
         return categories.isEmpty() ? null : categories.get(0);
     }
 
+    /**
+     * 카테고리를 조회하되, 요청자의 소유가 아니면 403 으로 막는다.
+     */
     private Category ownedCategory(Long id, String owner) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
@@ -187,6 +225,9 @@ public class NoteController {
         return category;
     }
 
+    /**
+     * 노트를 조회하되, 요청자의 소유가 아니면 403 으로 막는다.
+     */
     private Memo ownedMemo(Long id, String owner) {
         Memo memo = memoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
@@ -196,6 +237,9 @@ public class NoteController {
         return memo;
     }
 
+    /**
+     * 현재 로그인 사용자의 표시 이름(소유자 키).
+     */
     private String owner(Authentication authentication) {
         return LoginUsername.of(authentication);
     }
