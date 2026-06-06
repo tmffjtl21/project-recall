@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+    <link rel="icon" type="image/svg+xml" th:href="@{/img/favicon.svg}">
+    <title>Recall</title>
+
+    <!-- 분리된 스타일 -->
+    <link rel="stylesheet" th:href="@{/css/theme.css}">
+    <link rel="stylesheet" th:href="@{/css/notes.css}">
+    <!-- 코드 하이라이트(보기): 라이트/다크 두 테마, 모드에 따라 토글 -->
+    <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" disabled>
+    <!-- 에디터 테마 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+    <!-- 저장된 테마를 즉시 적용(깜빡임 방지) -->
+    <script>
+        (function () {
+            var t = 'light';
+            try { t = localStorage.getItem('theme') || 'light'; } catch (e) {}
+            document.documentElement.setAttribute('data-theme', t);
+            var dark = document.getElementById('hljs-dark');
+            var light = document.getElementById('hljs-light');
+            if (dark && light) { dark.disabled = (t !== 'dark'); light.disabled = (t === 'dark'); }
+        })();
+    </script>
+
+    <!-- 라이브러리 -->
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/meta.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="brand">
+            <img class="logo" th:src="@{/img/logo.svg}" alt="Recall">
+            <span class="brand-name">Recall</span>
+        </div>
+        <div class="search-wrap">
+            <input type="search" class="search-input" name="q"
+                   placeholder="노트 검색 (제목·내용)" th:value="${searchQuery}"
+                   th:attr="hx-get=@{/notes/search}"
+                   hx-target="#workspace" hx-swap="outerHTML"
+                   hx-trigger="input changed delay:300ms, search">
+        </div>
+        <div class="topbar-right">
+            <button type="button" id="theme-toggle" class="theme-toggle" onclick="toggleTheme()">다크</button>
+            <span class="user"><b th:text="${username}">user</b> 님</span>
+            <form th:action="@{/logout}" method="post" style="display:inline;">
+                <button type="submit" class="logout">로그아웃</button>
+            </form>
+        </div>
+    </header>
+
+    <!-- 3분할 작업 영역 (변경 시 통째로 교체) -->
+    <div id="workspace" th:fragment="workspace" class="workspace">
+
+        <!-- 좌측: 카테고리 -->
+        <aside class="col cat-col">
+            <div class="col-head">카테고리</div>
+            <div class="cat-list">
+                <div th:each="c : ${categories}" class="cat-item"
+                     th:classappend="${selectedCategory != null and c.id == selectedCategory.id} ? 'active'">
+                    <span class="cat-name" th:text="${c.name}"
+                          th:attr="hx-get=@{'/notes/category/' + ${c.id}}"
+                          hx-target="#workspace" hx-swap="outerHTML">카테고리</span>
+                    <span class="cat-del"
+                          th:attr="hx-delete=@{'/categories/' + ${c.id}}"
+                          hx-target="#workspace" hx-swap="outerHTML"
+                          hx-confirm="이 카테고리와 안의 노트가 모두 삭제됩니다. 계속할까요?">×</span>
+                </div>
+            </div>
+            <form class="cat-add" th:attr="hx-post=@{/categories}"
+                  hx-target="#workspace" hx-swap="outerHTML"
+                  hx-on::after-request="this.reset()">
+                <input type="text" name="name" placeholder="새 카테고리" maxlength="50" required>
+                <button type="submit">＋</button>
+            </form>
+        </aside>
+
+        <!-- 가운데: 노트 목록 -->
+        <section class="col list-col">
+            <div class="col-head">
+                <span th:text="${searchQuery != null ? '검색: ' + searchQuery
+                                 : (selectedCategory != null ? selectedCategory.name : '노트')}">노트</span>
+                <span th:if="${selectedCategory != null}" class="new-note"
+                      th:attr="hx-get=@{'/notes/category/' + ${selectedCategory.id} + '/new'}"
+                      hx-target="#note-detail" hx-swap="outerHTML">＋ 새 노트</span>
+            </div>
+            <div class="note-list">
+                <div th:if="${#lists.isEmpty(memos)}" class="list-empty"
+                     th:text="${searchQuery != null ? '검색 결과가 없습니다.' : '노트가 없습니다.'}">노트가 없습니다.</div>
+                <div th:each="m : ${memos}" class="note-item"
+                     th:classappend="${selectedMemo != null and m.id == selectedMemo.id} ? 'active'"
+                     th:attr="hx-get=@{'/notes/memo/' + ${m.id}}"
+                     hx-target="#workspace" hx-swap="outerHTML">
+                    <div class="note-title" th:text="${m.title}">제목</div>
+                    <div class="note-preview" th:text="${#strings.abbreviate(m.content, 80)}">미리보기</div>
+                    <div class="note-date" th:text="${#temporals.format(m.updatedAt, 'yyyy-MM-dd HH:mm')}">날짜</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 우측: 상세 (별도 파일 fragment) -->
+        <th:block th:replace="~{note-detail :: noteDetail}"></th:block>
+    </div>
+
+    <script>
+        // 노트 본문을 하나의 코드 블록으로 안전하게 렌더 + 언어 자동감지 하이라이트.
+        // textContent로만 다루므로 HTML이 절대 실행되지 않는다(주입 안전).
+        function renderNotes() {
+            document.querySelectorAll('.js-note-content').forEach(function (el) {
+                if (el.dataset.rendered) return;
+                var raw = el.textContent;
+                var pre = document.createElement('pre');
+                var code = document.createElement('code');
+                code.textContent = raw;
+                pre.appendChild(code);
+                el.textContent = '';
+                el.appendChild(pre);
+                if (window.hljs) { window.hljs.highlightElement(code); }
+                el.dataset.rendered = '1';
+            });
+        }
+
+        // 테마 헬퍼
+        function currentTheme() {
+            return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+        }
+        function cmTheme() { return currentTheme() === 'dark' ? 'material-darker' : 'default'; }
+        function applyTheme(t) {
+            document.documentElement.setAttribute('data-theme', t);
+            var dark = document.getElementById('hljs-dark');
+            var light = document.getElementById('hljs-light');
+            if (dark && light) { dark.disabled = (t !== 'dark'); light.disabled = (t === 'dark'); }
+            document.querySelectorAll('textarea.js-code-editor').forEach(function (ta) {
+                if (ta.cm) { ta.cm.setOption('theme', cmTheme()); }
+            });
+            var btn = document.getElementById('theme-toggle');
+            if (btn) { btn.textContent = (t === 'dark') ? '라이트' : '다크'; }
+            try { localStorage.setItem('theme', t); } catch (e) {}
+        }
+        function toggleTheme() { applyTheme(currentTheme() === 'dark' ? 'light' : 'dark'); }
+
+        // 2) 작성/수정 textarea를 CodeMirror 에디터로 변환 (전체 높이, 코드 색상)
+        function initEditors() {
+            if (!window.CodeMirror) return;
+            document.querySelectorAll('textarea.js-code-editor').forEach(function (ta) {
+                if (ta.dataset.cm) return;
+                var cm = window.CodeMirror.fromTextArea(ta, {
+                    mode: 'markdown',
+                    theme: cmTheme(),
+                    lineNumbers: true,
+                    lineWrapping: true,
+                    fencedCodeBlockHighlighting: true,
+                    viewportMargin: Infinity
+                });
+                cm.setSize('100%', '100%');
+                ta.cm = cm;
+                ta.dataset.cm = '1';
+                setTimeout(function () { cm.refresh(); cm.focus(); }, 0);
+            });
+        }
+
+        // 3) 모든 htmx 요청: CSRF 헤더 + CodeMirror 내용을 폼 파라미터로 동기화
+        document.body.addEventListener('htmx:configRequest', function (evt) {
+            var token = document.querySelector('meta[name="_csrf"]');
+            var header = document.querySelector('meta[name="_csrf_header"]');
+            if (token && header) {
+                evt.detail.headers[header.getAttribute('content')] = token.getAttribute('content');
+            }
+            var el = evt.detail.elt;
+            if (el && el.querySelectorAll) {
+                el.querySelectorAll('textarea.js-code-editor').forEach(function (ta) {
+                    if (ta.cm && evt.detail.parameters) {
+                        evt.detail.parameters['content'] = ta.cm.getValue();
+                    }
+                });
+            }
+        });
+
+        // 4) 페이지 로드 / htmx 스왑 후 렌더링·에디터 초기화
+        document.addEventListener('DOMContentLoaded', function () {
+            applyTheme(currentTheme());
+            renderNotes();
+            initEditors();
+        });
+        document.body.addEventListener('htmx:afterSwap', function () {
+            renderNotes();
+            initEditors();
+        });
+    </script>
+</body>
+</html>

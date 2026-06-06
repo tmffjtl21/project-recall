@@ -3,42 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>로그인 · project-recall</title>
-    <style>
-        * { box-sizing: border-box; }
-        body { font-family: system-ui, sans-serif; background: #f4f5f7;
-               display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .card { background: #fff; padding: 40px 36px; border-radius: 12px;
-                box-shadow: 0 4px 20px rgba(0,0,0,.08); width: 320px; }
-        h1 { font-size: 20px; margin: 0 0 24px; text-align: center; color: #222; }
-        label { display: block; font-size: 13px; color: #555; margin: 14px 0 6px; }
-        input { width: 100%; padding: 10px 12px; border: 1px solid #ddd;
-                border-radius: 8px; font-size: 14px; }
-        button { width: 100%; margin-top: 22px; padding: 11px; border: 0;
-                 border-radius: 8px; background: #3b6cff; color: #fff;
-                 font-size: 15px; cursor: pointer; }
-        button:hover { background: #2f59d6; }
-        .divider { display: flex; align-items: center; margin: 22px 0 4px; color: #bbb; font-size: 12px; }
-        .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #eee; }
-        .divider span { padding: 0 10px; }
-        .social { display: flex; align-items: center; justify-content: center; gap: 8px;
-                  margin-top: 10px; padding: 11px; border-radius: 8px;
-                  text-decoration: none; font-size: 14px; }
-        .github { background: #24292f; color: #fff; }
-        .github:hover { background: #111418; }
-        .kakao { background: #FEE500; color: #191600; }
-        .kakao:hover { background: #f2da00; }
-        .naver { background: #03C75A; color: #fff; }
-        .naver:hover { background: #02a94d; }
-        .msg { margin-top: 16px; font-size: 13px; text-align: center; }
-        .error { color: #d33; }
-        .info { color: #2a8; }
-        .hint { margin-top: 18px; font-size: 12px; color: #999; text-align: center; }
-    </style>
+    <title>Recall 로그인</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/img/favicon.svg}">
+    <link rel="stylesheet" th:href="@{/css/login.css}">
 </head>
 <body>
     <div class="card">
-        <h1>project-recall</h1>
+        <div class="login-brand">
+            <img th:src="@{/img/favicon.svg}" alt="" width="30" height="30">
+            <span>Recall</span>
+        </div>
         <form th:action="@{/login}" method="post">
             <label for="username">아이디</label>
             <input type="text" id="username" name="username" autofocus required>
@@ -46,7 +20,7 @@
             <label for="password">비밀번호</label>
             <input type="password" id="password" name="password" required>
 
-            <button type="submit">로그인</button>
+            <button type="submit" class="submit">로그인</button>
         </form>
 
         <div class="divider"><span>또는</span></div>

@@ -1,0 +1,94 @@
+/* ============================================================
+   theme.css - 색상 변수(라이트/다크), 기본 리셋, 상단바, 공통 버튼
+   ============================================================ */
+
+:root {
+    --green: #00a82d;
+    --green-dark: #00781f;
+    --green-soft: #eaf6ee;
+    --sidebar: #f3f5f4;
+    --list-bg: #fbfcfb;
+    --border: #e6e8e7;
+    --text: #2c2c2c;
+    --muted: #9aa0a0;
+    --code-bg: #f6f8fa;
+    --code-inline: #eef1ee;
+    --surface: #ffffff;
+    --hover: #f1f3f1;
+}
+
+/* 다크 모드 */
+:root[data-theme="dark"] {
+    --green: #2ea043;
+    --green-dark: #3fb950;
+    --green-soft: #1d2a1d;
+    --sidebar: #23262d;
+    --list-bg: #1d2025;
+    --border: #34373e;
+    --text: #d6d8dc;
+    --muted: #8a8f98;
+    --code-bg: #282c34;
+    --code-inline: #2a2e35;
+    --surface: #1f2227;
+    --hover: #2a2e35;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+    font-family: "Segoe UI", system-ui, "Malgun Gothic", sans-serif;
+    color: var(--text);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+}
+body, .col, header, .detail-col { transition: background-color .15s ease, color .15s ease, border-color .15s ease; }
+
+/* 상단바 */
+header {
+    flex: 0 0 auto;
+    height: 52px;
+    background: var(--surface);
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+}
+.brand {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--green); padding: 5px 14px 5px 9px; border-radius: 999px;
+    box-shadow: 0 1px 3px rgba(0, 120, 40, .25);
+}
+.brand .logo { width: 20px; height: 20px; display: block; }
+.brand-name { color: #fff; font-size: 16px; font-weight: 700; letter-spacing: .3px; }
+.search-wrap { flex: 1 1 auto; display: flex; justify-content: center; padding: 0 16px; }
+.search-input {
+    width: 100%; max-width: 440px; padding: 7px 13px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); color: var(--text); font-size: 13px;
+}
+.search-input::placeholder { color: var(--muted); }
+.search-input:focus { outline: none; border-color: var(--green); }
+
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.topbar-right .user { font-size: 13px; color: var(--muted); }
+.topbar-right .user b { color: var(--green-dark); }
+
+/* 공통 버튼 */
+.theme-toggle, .logout {
+    font-size: 13px; padding: 6px 12px; border: 1px solid var(--border);
+    border-radius: 7px; background: var(--surface); color: var(--text); cursor: pointer;
+}
+.theme-toggle:hover, .logout:hover { background: var(--hover); }
+.btn-ghost {
+    font-size: 13px; color: var(--text); background: var(--surface); border: 1px solid var(--border);
+    padding: 6px 14px; border-radius: 7px; cursor: pointer;
+}
+.btn-ghost:hover { background: var(--hover); }
+.btn-ghost.danger:hover { background: #fdecec; color: #d33; border-color: #f3c4c4; }
+.btn-primary {
+    padding: 9px 24px; border: 0; border-radius: 8px; background: var(--green);
+    color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.btn-primary:hover { background: var(--green-dark); }

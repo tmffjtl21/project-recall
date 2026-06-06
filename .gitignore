@@ -37,3 +37,5 @@ bin/
 
 ### 로컬 시크릿 (GitHub OAuth 등) - 절대 커밋 금지 ###
 secret.properties
+
+archi/

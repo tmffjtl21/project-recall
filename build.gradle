@@ -36,9 +36,14 @@ dependencies {
     // 내장 인메모리 DB (H2)
     runtimeOnly 'com.h2database:h2'
 
-    // Lombok
+    // MapStruct (Entity <-> DTO 매핑)
+    implementation 'org.mapstruct:mapstruct:1.6.3'
+    annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
+
+    // Lombok (+ MapStruct 연동 바인딩)
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
 
     // 설정 메타데이터 생성기
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
@@ -46,6 +51,9 @@ dependencies {
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // 프론트엔드 E2E 테스트 (실제 브라우저 구동) - 시스템 설치 Chrome 사용
+    testImplementation 'com.microsoft.playwright:playwright:1.49.0'
 }
 
 tasks.named('test') {

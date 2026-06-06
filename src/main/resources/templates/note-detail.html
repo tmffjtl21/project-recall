@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- 우측: 노트 상세 -->
+<section th:fragment="noteDetail" id="note-detail" class="col detail-col">
+    <div th:if="${selectedMemo == null}" class="detail-empty">
+        <div class="detail-empty-inner">
+            <div class="detail-empty-mark"></div>
+            <p>노트를 선택하거나 새로 작성하세요.</p>
+        </div>
+    </div>
+    <div th:if="${selectedMemo != null}" class="detail-wrap">
+        <div class="detail-toolbar">
+            <button type="button" class="btn-ghost"
+                    th:attr="hx-get=@{'/notes/memo/' + ${selectedMemo.id} + '/edit'}"
+                    hx-target="#note-detail" hx-swap="outerHTML">수정</button>
+            <button type="button" class="btn-ghost danger"
+                    th:attr="hx-delete=@{'/memos/' + ${selectedMemo.id}}"
+                    hx-target="#workspace" hx-swap="outerHTML"
+                    hx-confirm="이 노트를 삭제할까요?">삭제</button>
+        </div>
+        <div class="detail-scroll">
+            <article class="detail">
+                <h2 class="detail-title" th:text="${selectedMemo.title}">제목</h2>
+                <div class="detail-meta">
+                    <span th:text="${selectedMemo.writer}">작성자</span>
+                    <span class="dot">·</span>
+                    <span th:text="${#temporals.format(selectedMemo.createdAt, 'yyyy-MM-dd HH:mm')}">작성일</span>
+                </div>
+                <!-- 원본 텍스트를 넣어두면 JS가 마크다운+코드 하이라이트로 렌더 -->
+                <div class="detail-content js-note-content" th:text="${selectedMemo.content}">내용</div>
+            </article>
+        </div>
+    </div>
+</section>
+
+<!-- 우측: 작성/수정 에디터 (전체 높이) -->
+<section th:fragment="noteForm" id="note-detail" class="col detail-col">
+    <form class="note-form" th:attr="hx-post=${formAction}"
+          hx-target="#workspace" hx-swap="outerHTML">
+        <input type="hidden" name="categoryId" th:if="${formCategoryId != null}" th:value="${formCategoryId}">
+        <div class="editor-head">
+            <input type="text" name="title" class="form-title" placeholder="제목" required
+                   th:value="${formMemo != null ? formMemo.title : ''}">
+        </div>
+        <div class="editor-body">
+            <textarea name="content" class="form-content js-code-editor"
+                      placeholder="내용을 입력하세요. 코드는 ```언어 ... ``` 로 감싸면 색상이 적용됩니다."
+                      th:text="${formMemo != null ? formMemo.content : ''}"></textarea>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary"
+                    th:text="${formMemo != null ? '수정 저장' : '등록'}">등록</button>
+        </div>
+    </form>
+</section>
+
+</body>
+</html>

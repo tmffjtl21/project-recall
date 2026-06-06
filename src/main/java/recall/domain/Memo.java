@@ -1,11 +1,12 @@
 package recall.domain;
 
-import java.time.LocalDateTime;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -16,29 +17,33 @@ import lombok.NoArgsConstructor;
 @Table(name = "memo")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Memo {
+public class Memo extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false, length = 200)
     private String title;
 
-    @Column(nullable = false, length = 1000)
+    // 긴 노트/코드 저장 + 검색(LIKE) 가능하도록 대용량 VARCHAR 로 매핑
+    @Column(nullable = false, length = 1_000_000)
     private String content;
 
-    @Column(nullable = false, length = 50)
-    private String writer;
-
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
+    // 소속 카테고리 (ManyToOne 기본 EAGER) - 상세/목록에서 즉시 접근
+    @ManyToOne
+    @JoinColumn(name = "category_id", nullable = false)
+    private Category category;
 
     @Builder
-    public Memo(String title, String content, String writer) {
+    public Memo(String title, String content, Category category) {
         this.title = title;
         this.content = content;
-        this.writer = writer;
-        this.createdAt = LocalDateTime.now();
+        this.category = category;
+    }
+
+    public void update(String title, String content) {
+        this.title = title;
+        this.content = content;
     }
 }
