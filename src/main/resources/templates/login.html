@@ -18,6 +18,18 @@
                  border-radius: 8px; background: #3b6cff; color: #fff;
                  font-size: 15px; cursor: pointer; }
         button:hover { background: #2f59d6; }
+        .divider { display: flex; align-items: center; margin: 22px 0 4px; color: #bbb; font-size: 12px; }
+        .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #eee; }
+        .divider span { padding: 0 10px; }
+        .social { display: flex; align-items: center; justify-content: center; gap: 8px;
+                  margin-top: 10px; padding: 11px; border-radius: 8px;
+                  text-decoration: none; font-size: 14px; }
+        .github { background: #24292f; color: #fff; }
+        .github:hover { background: #111418; }
+        .kakao { background: #FEE500; color: #191600; }
+        .kakao:hover { background: #f2da00; }
+        .naver { background: #03C75A; color: #fff; }
+        .naver:hover { background: #02a94d; }
         .msg { margin-top: 16px; font-size: 13px; text-align: center; }
         .error { color: #d33; }
         .info { color: #2a8; }
@@ -36,6 +48,11 @@
 
             <button type="submit">로그인</button>
         </form>
+
+        <div class="divider"><span>또는</span></div>
+        <a class="social github" th:href="@{/oauth2/authorization/github}">GitHub 계정으로 로그인</a>
+        <a class="social kakao" th:href="@{/oauth2/authorization/kakao}">카카오로 로그인</a>
+        <a class="social naver" th:href="@{/oauth2/authorization/naver}">네이버로 로그인</a>
 
         <p class="msg error" th:if="${param.error}">아이디 또는 비밀번호가 올바르지 않습니다.</p>
         <p class="msg info" th:if="${param.logout}">로그아웃되었습니다.</p>
