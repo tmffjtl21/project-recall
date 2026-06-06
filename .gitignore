@@ -39,3 +39,6 @@ bin/
 secret.properties
 
 archi/
+
+### 운영 데이터(파일 H2) ###
+/data/

@@ -71,7 +71,9 @@ spring:
             user-name-attribute: response
 
 server:
-  port: 8080
+  # 호스트가 주입하는 PORT 환경변수를 우선 사용(없으면 8080)
+  port: ${PORT:8080}
+  forward-headers-strategy: framework   # 리버스 프록시(HTTPS) 뒤에서 baseUrl/scheme 올바르게 인식
 
 logging:
   level:

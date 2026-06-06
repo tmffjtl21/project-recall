@@ -1,0 +1,33 @@
+# ============================================================
+# 운영(prod) 프로파일: 파일 기반 H2 로 데이터 영속.
+# 실행: java -jar app.jar --spring.profiles.active=prod
+#       (또는 환경변수 SPRING_PROFILES_ACTIVE=prod)
+# 데이터는 ./data/recall.mv.db 파일에 저장된다(이 파일만 백업하면 됨).
+# ============================================================
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/recall;MODE=MySQL;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ${DB_PASSWORD:}
+
+  jpa:
+    hibernate:
+      # 스키마를 유지하며 변경분만 반영(데이터 보존)
+      ddl-auto: update
+    defer-datasource-initialization: false
+    show-sql: false
+
+  # 운영에서는 테스트 시드(data.sql) 실행하지 않음
+  sql:
+    init:
+      mode: never
+
+  # 운영에서는 H2 웹 콘솔 비활성(보안)
+  h2:
+    console:
+      enabled: false
+
+logging:
+  level:
+    org.hibernate.SQL: warn
