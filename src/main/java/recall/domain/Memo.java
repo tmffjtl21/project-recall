@@ -12,6 +12,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 @Entity
 @Table(name = "memo")
@@ -36,7 +37,9 @@ public class Memo extends BaseEntity {
     private Category category;
 
     // 카테고리 안에서의 표시 순서(작을수록 위). 드래그로 변경한다.
+    // 기본값 0: 운영 DB(ddl-auto=update)에 컬럼 추가 시 기존 행을 0으로 채워 NOT NULL 위반을 막는다.
     @Column(nullable = false)
+    @ColumnDefault("0")
     private int sortOrder;
 
     @Builder

@@ -10,6 +10,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 @Entity
 @Table(name = "category")
@@ -29,6 +30,7 @@ public class Category extends BaseEntity {
     private String owner;
 
     @Column(nullable = false)
+    @ColumnDefault("0")
     private int sortOrder;
 
     @Builder
