@@ -31,6 +31,8 @@
 
     <!-- 라이브러리 -->
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <!-- 드래그로 순서 변경 -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/meta.min.js"></script>
@@ -77,14 +79,18 @@
             <div class="col-head">카테고리</div>
             <div class="cat-list">
                 <div th:each="c : ${categories}" class="cat-item"
+                     th:attr="data-id=${c.id}"
                      th:classappend="${selectedCategory != null and c.id == selectedCategory.id} ? 'active'">
                     <span class="cat-name" th:text="${c.name}"
                           th:attr="hx-get=@{'/notes/category/' + ${c.id}}"
                           hx-target="#workspace" hx-swap="outerHTML">카테고리</span>
-                    <span class="cat-del"
-                          th:attr="hx-delete=@{'/categories/' + ${c.id}}"
-                          hx-target="#workspace" hx-swap="outerHTML"
-                          hx-confirm="이 카테고리와 안의 노트가 모두 삭제됩니다. 계속할까요?">×</span>
+                    <span class="cat-actions">
+                        <span class="cat-edit" th:attr="data-id=${c.id}" title="이름 변경">✎</span>
+                        <span class="cat-del"
+                              th:attr="hx-delete=@{'/categories/' + ${c.id}}"
+                              hx-target="#workspace" hx-swap="outerHTML"
+                              hx-confirm="이 카테고리와 안의 노트가 모두 삭제됩니다. 계속할까요?">×</span>
+                    </span>
                 </div>
             </div>
             <form class="cat-add" th:attr="hx-post=@{/categories}"
@@ -107,12 +113,12 @@
                 <span th:unless="${selectedCategory != null}" class="new-note" aria-hidden="true"
                       style="visibility:hidden">＋ 새 노트</span>
             </div>
-            <div class="note-list">
+            <div class="note-list" th:attr="data-reorderable=${selectedCategory != null}">
                 <div th:if="${#lists.isEmpty(memos)}" class="list-empty"
                      th:text="${searchQuery != null ? '검색 결과가 없습니다.' : '노트가 없습니다.'}">노트가 없습니다.</div>
                 <div th:each="m : ${memos}" class="note-item"
+                     th:attr="data-id=${m.id},hx-get=@{'/notes/memo/' + ${m.id}}"
                      th:classappend="${selectedMemo != null and m.id == selectedMemo.id} ? 'active'"
-                     th:attr="hx-get=@{'/notes/memo/' + ${m.id}}"
                      hx-target="#workspace" hx-swap="outerHTML">
                     <div class="note-title" th:text="${m.title}">제목</div>
                     <div class="note-preview" th:text="${#strings.abbreviate(m.content, 80)}">미리보기</div>
@@ -128,25 +134,89 @@
     <!-- 모바일 카테고리 드로어 배경 -->
     <div class="drawer-backdrop" onclick="closeDrawer()"></div>
 
-    <script>
+    <!-- th:inline="none": 스크립트 안 정규식의 [( 등을 Thymeleaf 표현식으로 오해하지 않도록 처리 비활성화 -->
+    <script th:inline="none">
+        // 본문 한 줄이 통째로 첨부 토큰인 경우만 인라인 요소로 뺀다.
+        // 이미지: ![이름](/attachments/3)  파일: [이름](/attachments/3)
+        var IMG_TOKEN = /^!\[([^\]]*)\]\((\/attachments\/\d+)\)\s*$/;
+        var FILE_TOKEN = /^\[([^\]]*)\]\((\/attachments\/\d+)\)\s*$/;
+
         /**
-         * 노트 본문을 코드 블록으로 안전하게 렌더하고 언어를 자동 감지해 하이라이트한다.
-         * textContent 로만 다루므로 HTML 이 실행되지 않는다(주입 안전).
+         * 노트 본문을 렌더한다.
+         * - 첨부 토큰 줄: 이미지는 <img>, 파일은 다운로드 링크로 인라인 표시
+         * - 그 외 연속 줄: 기존처럼 코드 블록으로 묶어 하이라이트
+         * 텍스트는 textContent 로만, 이미지/링크 URL 은 /attachments/숫자 패턴만 허용(주입 안전).
          */
         function renderNotes() {
             document.querySelectorAll('.js-note-content').forEach(function (el) {
                 if (el.dataset.rendered) {
                     return;
                 }
-                var pre = document.createElement('pre');
-                var code = document.createElement('code');
-                code.textContent = el.textContent;
-                pre.appendChild(code);
+                var lines = el.textContent.split('\n');
                 el.textContent = '';
-                el.appendChild(pre);
-                if (window.hljs) {
-                    window.hljs.highlightElement(code);
+                var buffer = [];
+
+                function flushCode() {
+                    // 앞뒤 빈 줄은 버려 박스가 불필요하게 커지거나 빈 박스가 생기지 않게 한다
+                    while (buffer.length && buffer[0].trim() === '') {
+                        buffer.shift();
+                    }
+                    while (buffer.length && buffer[buffer.length - 1].trim() === '') {
+                        buffer.pop();
+                    }
+                    if (buffer.length === 0) {
+                        return;
+                    }
+                    var pre = document.createElement('pre');
+                    var code = document.createElement('code');
+                    code.textContent = buffer.join('\n');
+                    pre.appendChild(code);
+                    el.appendChild(pre);
+                    if (window.hljs) {
+                        window.hljs.highlightElement(code);
+                    }
+                    buffer = [];
                 }
+
+                // 첨부에 다운로드 링크를 만든다(이미지/파일 공통).
+                function downloadLink(url, name, label) {
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.className = 'note-dl';
+                    a.textContent = label + (name || '파일');
+                    a.setAttribute('download', name || '');
+                    return a;
+                }
+
+                lines.forEach(function (line) {
+                    var img = IMG_TOKEN.exec(line);
+                    if (img) {
+                        flushCode();
+                        var fig = document.createElement('div');
+                        fig.className = 'note-image';
+                        var image = document.createElement('img');
+                        image.src = img[2];            // 정규식상 /attachments/숫자 로 한정됨
+                        image.alt = img[1];
+                        image.loading = 'lazy';
+                        fig.appendChild(image);
+                        fig.appendChild(downloadLink(img[2], img[1], '다운로드: '));
+                        el.appendChild(fig);
+                        return;
+                    }
+                    var file = FILE_TOKEN.exec(line);
+                    if (file) {
+                        flushCode();
+                        var link = document.createElement('a');
+                        link.href = file[2];
+                        link.className = 'note-file';
+                        link.textContent = '첨부: ' + (file[1] || '파일');
+                        link.setAttribute('download', file[1] || '');
+                        el.appendChild(link);
+                        return;
+                    }
+                    buffer.push(line);
+                });
+                flushCode();
                 el.dataset.rendered = '1';
             });
         }
@@ -268,18 +338,230 @@
             }
         });
 
+        /* ----- 드래그로 순서 변경 (SortableJS) ----- */
+
+        /**
+         * 변경된 DOM 순서대로 data-id 를 모아 콤마 문자열로 만든다.
+         */
+        function collectIds(container, itemSelector) {
+            return Array.prototype.map
+                .call(container.querySelectorAll(itemSelector), function (el) {
+                    return el.getAttribute('data-id');
+                })
+                .filter(Boolean)
+                .join(',');
+        }
+
+        /**
+         * 카테고리/노트 목록에 드래그 정렬을 붙인다(화면 교체 후 매번 재적용).
+         * 모바일에서는 길게 눌러야 드래그(짧게 누르면 선택)되도록 delay 를 둔다.
+         */
+        function initSortable() {
+            if (!window.Sortable) {
+                return;
+            }
+            var common = { animation: 150, delay: 150, delayOnTouchOnly: true, fallbackTolerance: 4 };
+
+            var catList = document.querySelector('.cat-list');
+            if (catList && !catList.dataset.sortable) {
+                Sortable.create(catList, Object.assign({}, common, {
+                    draggable: '.cat-item',
+                    filter: '.cat-actions',           // 수정/삭제 버튼을 잡고는 드래그 안 함
+                    onEnd: function (evt) {
+                        if (evt.oldIndex === evt.newIndex) {
+                            return;
+                        }
+                        htmx.ajax('POST', '/categories/reorder',
+                            { values: { ids: collectIds(catList, '.cat-item') }, swap: 'none' });
+                    }
+                }));
+                catList.dataset.sortable = '1';
+            }
+
+            var noteList = document.querySelector('.note-list');
+            // 검색 결과는 여러 카테고리가 섞여 있어 순서 변경을 막는다.
+            if (noteList && !noteList.dataset.sortable && noteList.dataset.reorderable === 'true') {
+                Sortable.create(noteList, Object.assign({}, common, {
+                    draggable: '.note-item',
+                    onEnd: function (evt) {
+                        if (evt.oldIndex === evt.newIndex) {
+                            return;
+                        }
+                        htmx.ajax('POST', '/memos/reorder',
+                            { values: { ids: collectIds(noteList, '.note-item') }, swap: 'none' });
+                    }
+                }));
+                noteList.dataset.sortable = '1';
+            }
+        }
+
+        /* ----- 카테고리 이름 인라인 수정 ----- */
+
+        function htmlToNode(html) {
+            var tpl = document.createElement('template');
+            tpl.innerHTML = html.trim();
+            return tpl.content.firstChild;
+        }
+
+        /**
+         * 카테고리 이름을 입력창으로 바꿔 즉시 수정한다.
+         * Enter/포커스아웃 = 저장, Esc = 취소.
+         */
+        function startRename(id) {
+            var item = document.querySelector('.cat-item[data-id="' + id + '"]');
+            if (!item || item.querySelector('.cat-rename-input')) {
+                return;
+            }
+            var span = item.querySelector('.cat-name');
+            var originalHtml = span.outerHTML;
+            var currentName = span.textContent;
+
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentName;
+            input.maxLength = 50;
+            input.className = 'cat-rename-input';
+            span.replaceWith(input);
+            input.focus();
+            input.select();
+
+            var finished = false;
+            function restore() {
+                var node = htmlToNode(originalHtml);
+                input.replaceWith(node);
+                if (window.htmx) {
+                    htmx.process(node);   // 복원된 span 의 hx-get 재활성화
+                }
+            }
+            function commit() {
+                if (finished) {
+                    return;
+                }
+                finished = true;
+                var name = input.value.trim();
+                if (name && name !== currentName) {
+                    var active = document.querySelector('.cat-item.active');
+                    var selectedId = active ? active.getAttribute('data-id') : '';
+                    htmx.ajax('POST', '/categories/' + id + '/rename', {
+                        values: { name: name, selectedId: selectedId },
+                        target: '#workspace', swap: 'outerHTML'
+                    });
+                } else {
+                    restore();
+                }
+            }
+            function cancel() {
+                if (finished) {
+                    return;
+                }
+                finished = true;
+                restore();
+            }
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); commit(); }
+                else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+            });
+            input.addEventListener('blur', commit);
+        }
+
+        // 연필(✎) 클릭으로 이름 수정 시작 (교체 후에도 동작하도록 위임)
+        document.addEventListener('click', function (e) {
+            var edit = e.target.closest ? e.target.closest('.cat-edit') : null;
+            if (edit) {
+                e.stopPropagation();
+                startRename(edit.getAttribute('data-id'));
+            }
+        });
+
+        /* ----- 파일/이미지 첨부 ----- */
+
+        function csrf() {
+            var token = document.querySelector('meta[name="_csrf"]');
+            var header = document.querySelector('meta[name="_csrf_header"]');
+            return { name: header ? header.getAttribute('content') : null,
+                     value: token ? token.getAttribute('content') : null };
+        }
+
+        /**
+         * 에디터 본문(CodeMirror 또는 textarea)의 커서 위치에 토큰 줄을 끼워 넣는다.
+         */
+        function insertToken(token) {
+            var ta = document.querySelector('#note-detail textarea.js-code-editor');
+            var text = '\n' + token + '\n';
+            if (ta && ta.cm) {
+                ta.cm.replaceSelection(text);
+                ta.cm.focus();
+            } else if (ta) {
+                var start = ta.selectionStart != null ? ta.selectionStart : ta.value.length;
+                ta.value = ta.value.slice(0, start) + text + ta.value.slice(start);
+                var pos = start + text.length;
+                ta.setSelectionRange(pos, pos);
+                ta.focus();
+            }
+        }
+
+        /**
+         * 선택한 파일들을 순서대로 업로드하고, 각 응답을 본문에 토큰으로 삽입한다.
+         * 이미지는 ![이름](url), 그 외 파일은 [이름](url) 형식.
+         */
+        async function uploadAndInsert(files) {
+            var c = csrf();
+            for (var i = 0; i < files.length; i++) {
+                var form = new FormData();
+                form.append('file', files[i]);
+                var headers = {};
+                if (c.name && c.value) {
+                    headers[c.name] = c.value;
+                }
+                try {
+                    var res = await fetch('/attachments', { method: 'POST', body: form, headers: headers });
+                    if (!res.ok) {
+                        var msg = await res.text();
+                        alert(msg || ('업로드 실패 (' + res.status + ')'));
+                        continue;
+                    }
+                    var data = await res.json();
+                    var token = (data.image ? '![' : '[') + data.name + '](' + data.url + ')';
+                    insertToken(token);
+                } catch (err) {
+                    alert('업로드 중 오류가 발생했습니다.');
+                }
+            }
+        }
+
+        // 첨부 버튼 → 숨김 파일 입력 열기 / 파일 선택 시 업로드 (교체 후에도 동작하도록 위임)
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest ? e.target.closest('.js-attach-btn') : null;
+            if (btn) {
+                var input = document.querySelector('#note-detail .js-attach-input');
+                if (input) {
+                    input.click();
+                }
+            }
+        });
+        document.addEventListener('change', function (e) {
+            if (e.target && e.target.classList && e.target.classList.contains('js-attach-input')) {
+                if (e.target.files && e.target.files.length) {
+                    uploadAndInsert(e.target.files);
+                }
+                e.target.value = '';
+            }
+        });
+
         /* ----- 라이프사이클 ----- */
 
         document.addEventListener('DOMContentLoaded', function () {
             applyTheme(currentTheme());
             renderNotes();
             initEditors();
+            initSortable();
             syncMobileView();
         });
 
         document.body.addEventListener('htmx:afterSwap', function () {
             renderNotes();
             initEditors();
+            initSortable();
             closeDrawer();
             syncMobileView();
         });

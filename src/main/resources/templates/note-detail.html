@@ -54,6 +54,9 @@
                       th:text="${formMemo != null ? formMemo.content : ''}"></textarea>
         </div>
         <div class="form-actions">
+            <!-- name 이 없어 폼 전송에 포함되지 않음. 업로드는 fetch 로 따로 처리 -->
+            <input type="file" class="js-attach-input" multiple hidden>
+            <button type="button" class="btn-ghost js-attach-btn">파일/이미지 첨부</button>
             <button type="submit" class="btn-primary"
                     th:text="${formMemo != null ? '수정 저장' : '등록'}">등록</button>
         </div>

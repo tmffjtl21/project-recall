@@ -1,6 +1,9 @@
 package recall.controller;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -10,13 +13,17 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.server.ResponseStatusException;
+import recall.domain.Attachment;
 import recall.domain.Category;
 import recall.domain.Memo;
 import recall.mapper.CategoryMapper;
 import recall.mapper.MemoMapper;
+import recall.repository.AttachmentRepository;
 import recall.repository.CategoryRepository;
 import recall.repository.MemoRepository;
+import recall.support.FileStorage;
 import recall.support.LoginUsername;
 
 /**
@@ -26,17 +33,25 @@ import recall.support.LoginUsername;
 @Controller
 public class NoteController {
 
+    // 본문 속 첨부 참조 토큰에서 id 추출: /attachments/123
+    private static final Pattern ATTACHMENT_REF = Pattern.compile("/attachments/(\\d+)");
+
     private final CategoryRepository categoryRepository;
     private final MemoRepository memoRepository;
+    private final AttachmentRepository attachmentRepository;
     private final CategoryMapper categoryMapper;
     private final MemoMapper memoMapper;
+    private final FileStorage fileStorage;
 
     public NoteController(CategoryRepository categoryRepository, MemoRepository memoRepository,
-                          CategoryMapper categoryMapper, MemoMapper memoMapper) {
+                          AttachmentRepository attachmentRepository, CategoryMapper categoryMapper,
+                          MemoMapper memoMapper, FileStorage fileStorage) {
         this.categoryRepository = categoryRepository;
         this.memoRepository = memoRepository;
+        this.attachmentRepository = attachmentRepository;
         this.categoryMapper = categoryMapper;
         this.memoMapper = memoMapper;
+        this.fileStorage = fileStorage;
     }
 
     /**
@@ -134,6 +149,39 @@ public class NoteController {
     }
 
     /**
+     * 카테고리 이름을 변경한다. 현재 열려 있던 카테고리 선택 상태를 유지한다.
+     */
+    @PostMapping("/categories/{id}/rename")
+    public String renameCategory(@PathVariable Long id, @RequestParam String name,
+                                 @RequestParam(required = false) Long selectedId,
+                                 Model model, Authentication authentication) {
+        String owner = owner(authentication);
+        Category category = ownedCategory(id, owner);
+        category.rename(name.trim());
+        categoryRepository.save(category);
+        Category selected = selectedId == null ? category : ownedCategory(selectedId, owner);
+        populate(model, owner, selected, null);
+        return "notes :: workspace";
+    }
+
+    /**
+     * 카테고리 표시 순서를 드래그한 순서(ids)대로 저장한다. 화면은 그대로 둔다.
+     */
+    @PostMapping("/categories/reorder")
+    @ResponseBody
+    public void reorderCategories(@RequestParam String ids, Authentication authentication) {
+        String owner = owner(authentication);
+        List<Category> updated = new ArrayList<>();
+        int order = 0;
+        for (Long id : parseIds(ids)) {
+            Category category = ownedCategory(id, owner);
+            category.changeSortOrder(order++);
+            updated.add(category);
+        }
+        categoryRepository.saveAll(updated);
+    }
+
+    /**
      * 카테고리를 삭제한다(소속 노트도 함께 삭제).
      */
     @DeleteMapping("/categories/{id}")
@@ -156,10 +204,30 @@ public class NoteController {
                           Model model, Authentication authentication) {
         String owner = owner(authentication);
         Category category = ownedCategory(categoryId, owner);
+        // 새 노트는 맨 위(sortOrder=0). 기존 노트는 한 칸씩 뒤로 민다.
+        memoRepository.shiftSortOrder(category.getId());
         Memo memo = memoRepository.save(Memo.builder()
-                .title(title).content(content).category(category).build());
+                .title(title).content(content).category(category).sortOrder(0).build());
+        linkAttachments(content, memo, owner);
         populate(model, owner, category, memo);
         return "notes :: workspace";
+    }
+
+    /**
+     * 노트 표시 순서를 드래그한 순서(ids)대로 저장한다. 화면은 그대로 둔다.
+     */
+    @PostMapping("/memos/reorder")
+    @ResponseBody
+    public void reorderMemos(@RequestParam String ids, Authentication authentication) {
+        String owner = owner(authentication);
+        List<Memo> updated = new ArrayList<>();
+        int order = 0;
+        for (Long id : parseIds(ids)) {
+            Memo memo = ownedMemo(id, owner);
+            memo.changeSortOrder(order++);
+            updated.add(memo);
+        }
+        memoRepository.saveAll(updated);
     }
 
     /**
@@ -174,6 +242,7 @@ public class NoteController {
         Memo memo = ownedMemo(id, owner);
         memo.update(title, content);
         memoRepository.save(memo);
+        linkAttachments(content, memo, owner);
         populate(model, owner, memo.getCategory(), memo);
         return "notes :: workspace";
     }
@@ -186,6 +255,7 @@ public class NoteController {
         String owner = owner(authentication);
         Memo memo = ownedMemo(id, owner);
         Category category = memo.getCategory();
+        deleteAttachmentsOf(memo);
         memoRepository.delete(memo);
         populate(model, owner, category, null);
         return "notes :: workspace";
@@ -199,7 +269,7 @@ public class NoteController {
                 categoryMapper.toDtoList(categoryRepository.findByOwnerOrderBySortOrderAscIdAsc(owner)));
         model.addAttribute("selectedCategory", selected == null ? null : categoryMapper.toDto(selected));
         model.addAttribute("memos", selected == null ? List.of()
-                : memoMapper.toDtoList(memoRepository.findByCategoryIdOrderByIdDesc(selected.getId())));
+                : memoMapper.toDtoList(memoRepository.findByCategoryIdOrderBySortOrderAscIdDesc(selected.getId())));
         model.addAttribute("selectedMemo", selectedMemo == null ? null : memoMapper.toDto(selectedMemo));
         model.addAttribute("username", owner);
         model.addAttribute("searchQuery", null);
@@ -242,5 +312,58 @@ public class NoteController {
      */
     private String owner(Authentication authentication) {
         return LoginUsername.of(authentication);
+    }
+
+    /**
+     * 본문에 들어 있는 첨부 토큰(/attachments/{id})을 찾아 해당 첨부를 이 노트로 연결한다.
+     * 소유자가 다른 첨부는 무시한다. 연결해 두면 노트 삭제 시 함께 정리할 수 있다.
+     */
+    private void linkAttachments(String content, Memo memo, String owner) {
+        if (content == null || content.isEmpty()) {
+            return;
+        }
+        Matcher matcher = ATTACHMENT_REF.matcher(content);
+        List<Attachment> toLink = new ArrayList<>();
+        while (matcher.find()) {
+            Long attachmentId = Long.valueOf(matcher.group(1));
+            attachmentRepository.findById(attachmentId).ifPresent(attachment -> {
+                if (owner.equals(attachment.getOwner())
+                        && (attachment.getMemo() == null || !memo.getId().equals(attachment.getMemo().getId()))) {
+                    attachment.linkTo(memo);
+                    toLink.add(attachment);
+                }
+            });
+        }
+        if (!toLink.isEmpty()) {
+            attachmentRepository.saveAll(toLink);
+        }
+    }
+
+    /**
+     * 노트에 연결된 첨부의 파일과 메타데이터를 모두 지운다.
+     */
+    private void deleteAttachmentsOf(Memo memo) {
+        List<Attachment> attachments = attachmentRepository.findByMemoId(memo.getId());
+        for (Attachment attachment : attachments) {
+            fileStorage.delete(attachment.getStoredName());
+        }
+        attachmentRepository.deleteAll(attachments);
+    }
+
+    /**
+     * "3,1,2" 형태의 콤마 구분 문자열을 Long 목록으로 변환한다(빈 값 무시).
+     */
+    private List<Long> parseIds(String ids) {
+        List<Long> result = new ArrayList<>();
+        if (ids == null) {
+            return result;
+        }
+        for (String token : ids.split(",")) {
+            String trimmed = token.trim();
+            if (!trimmed.isEmpty()) {
+                result.add(Long.valueOf(trimmed));
+            }
+        }
+        return result;
     }
 }

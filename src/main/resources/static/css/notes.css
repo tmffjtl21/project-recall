@@ -30,9 +30,18 @@
     flex: 1; font-size: 14px; color: var(--text); cursor: pointer;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.cat-del { color: #c2c7c2; font-size: 15px; padding: 0 2px 0 6px; cursor: pointer; visibility: hidden; }
-.cat-item:hover .cat-del { visibility: visible; }
+.cat-actions { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.cat-edit, .cat-del { cursor: pointer; visibility: hidden; }
+.cat-edit { color: #c2c7c2; font-size: 13px; padding: 0 2px; }
+.cat-del { color: #c2c7c2; font-size: 15px; padding: 0 2px 0 4px; }
+.cat-item:hover .cat-edit, .cat-item:hover .cat-del { visibility: visible; }
+.cat-edit:hover { color: var(--green-dark); }
 .cat-del:hover { color: #e25; }
+.cat-rename-input {
+    flex: 1; min-width: 0; padding: 5px 7px; border: 1px solid var(--green);
+    border-radius: 6px; font-size: 14px; background: var(--surface); color: var(--text);
+}
+.cat-rename-input:focus { outline: none; }
 .cat-add { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--border); }
 .cat-add input {
     flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--border);
@@ -68,6 +77,12 @@
 .note-preview { font-size: 12px; color: var(--muted); line-height: 1.45; height: 2.9em; overflow: hidden; }
 .note-date { font-size: 11px; color: #bcc1bc; margin-top: 7px; }
 .list-empty { color: var(--muted); font-size: 13px; padding: 28px 16px; text-align: center; }
+
+/* 드래그 정렬(SortableJS) */
+.cat-item, .note-item { -webkit-user-select: none; user-select: none; }
+.sortable-ghost { opacity: .35; }
+.sortable-chosen { background: var(--hover); }
+.sortable-drag { background: var(--surface); box-shadow: 0 5px 16px rgba(0, 0, 0, .18); }
 
 /* 우측: 상세/에디터 공통 컨테이너 */
 .detail-col { flex: 1 1 auto; min-width: 0; background: var(--surface); display: flex; flex-direction: column; }
@@ -118,6 +133,26 @@
     font-family: "Consolas", "D2Coding", ui-monospace, monospace; font-size: 13px;
     background: var(--code-inline); padding: 2px 6px; border-radius: 4px;
 }
+/* 본문 인라인 첨부 */
+.detail-content img {
+    max-width: 100%; height: auto; display: block;
+    margin: 12px 0; border-radius: 8px; border: 1px solid var(--border);
+}
+/* 이미지 + 다운로드 링크 묶음 */
+.detail-content .note-image { margin: 12px 0; }
+.detail-content .note-image img { margin: 0 0 6px; }
+.detail-content a.note-dl {
+    display: inline-block; font-size: 12px; color: var(--green-dark); text-decoration: none;
+}
+.detail-content a.note-dl:hover { text-decoration: underline; }
+.detail-content a.note-file {
+    display: inline-flex; align-items: center; gap: 6px; margin: 8px 0;
+    padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--code-inline); color: var(--green-dark);
+    font-size: 13px; text-decoration: none; max-width: 100%;
+}
+.detail-content a.note-file:hover { border-color: var(--green); }
+
 /* 코드 블록 (노트 본문 전체) */
 .detail-content pre {
     background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
@@ -153,9 +188,11 @@
 .editor-body textarea.form-content:focus { outline: none; }
 .editor-body textarea.form-content::placeholder { color: var(--muted); }
 .form-actions {
-    flex: 0 0 auto; display: flex; justify-content: flex-end; gap: 10px;
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 10px;
     padding: 12px 28px; border-top: 1px solid var(--border); background: var(--surface);
 }
+/* 첨부 버튼은 왼쪽, 저장 버튼은 오른쪽 */
+.form-actions .js-attach-btn { margin-right: auto; }
 
 /* ============================================================
    모바일 전용 컨트롤 (기본은 데스크톱 = 숨김)
@@ -195,6 +232,9 @@
     .detail-col { display: none; }
     body.view-detail .list-col { display: none; }
     body.view-detail .detail-col { display: flex; width: 100%; }
+
+    /* 모바일은 hover 가 없어 카테고리 수정/삭제 버튼을 항상 보여준다 */
+    .cat-edit, .cat-del { visibility: visible; }
 
     .mobile-back { display: inline-flex; }
     .editor-head { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }

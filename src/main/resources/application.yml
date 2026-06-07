@@ -6,6 +6,13 @@ spring:
   config:
     import: optional:file:./secret.properties
 
+  # 파일 첨부 업로드 한도. 1MB 초과분은 디스크 temp 로 스트리밍(작은 VM 힙 보호).
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 22MB
+      file-size-threshold: 1MB
+
   # 내장 인메모리 H2 데이터베이스
   datasource:
     url: jdbc:h2:mem:recall;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
@@ -79,3 +86,9 @@ logging:
   level:
     org.hibernate.SQL: debug
     org.hibernate.orm.jdbc.bind: trace
+
+# 앱 전용 설정
+app:
+  # 첨부 파일 저장 위치(운영은 UPLOAD_DIR 로 덮어씀, 기본은 H2 DB 옆 ./data/uploads)
+  upload:
+    dir: ${UPLOAD_DIR:./data/uploads}

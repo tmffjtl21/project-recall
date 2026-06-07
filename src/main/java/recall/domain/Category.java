@@ -41,4 +41,8 @@ public class Category extends BaseEntity {
     public void rename(String name) {
         this.name = name;
     }
+
+    public void changeSortOrder(int sortOrder) {
+        this.sortOrder = sortOrder;
+    }
 }
